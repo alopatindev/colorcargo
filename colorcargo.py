@@ -29,7 +29,8 @@ from colorama import Fore, Style
 import os
 import re
 import sys
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, STDOUT
+from threading import Thread
 
 
 current_dir = os.path.split(os.getcwd())[1]
@@ -76,23 +77,31 @@ def set_colors(trace):
             i -= 1
 
 
-def parse_backtrace_and_print(text):
-    trace = []
-    found = False
-    for line in text.splitlines():
-        if line.find('stack backtrace:') != -1:
-            found = True
-        elif found and line.find('0x0 - <unknown>') != -1:
-            found = False
-            set_colors(trace)
-            for i in trace:
-                print >> sys.stderr, i
-            trace = []
+def parse_backtrace_and_print(trace):
+    set_colors(trace)
+    for i in trace:
+        sys.stdout.write(i)
 
-        if found:
+
+def consumer(pipe):
+    found_backtrace = False
+
+    trace = []
+
+    while not pipe.poll():
+        line = pipe.stdout.readline()
+
+        if found_backtrace:
+            trace.append(line)
+            if line.find('0x0 - <unknown>') != -1:
+                found_backtrace = False
+                parse_backtrace_and_print(trace)
+        elif line.find('stack backtrace:') != -1:
+            found_backtrace = True
             trace.append(line)
         else:
-            print >> sys.stderr, line
+            sys.stdout.write(line)
+        sys.stdout.flush()
 
 
 def main(argv):
@@ -106,13 +115,9 @@ def main(argv):
     else:
         args += [argv[1], '--color=always'] + argv[2:]
 
-    stdout, stderr = Popen(args=args, stdout=PIPE, stderr=PIPE).communicate()
-
-    if not (stdout is None):
-        print stdout
-
-    if not (stderr is None):
-        parse_backtrace_and_print(stderr)
+    pipe = Popen(args=args, stdout=PIPE, stderr=STDOUT)
+    thread = Thread(target=consumer, args=(pipe,))
+    thread.start()
 
 
 main(sys.argv)
