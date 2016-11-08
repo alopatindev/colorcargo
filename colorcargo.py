@@ -55,12 +55,24 @@ def set_func_color(trace, line):
 
 
 def set_file_and_line_color(trace, line):
+    parse_ok = True
+
     file_and_line_pos = trace[line].rfind('/') + 1
     if file_and_line_pos > 0:
         file_and_line = trace[line][file_and_line_pos:]
-        dirpath = trace[line][:file_and_line_pos]
+        file_line_pos = file_and_line.rfind(':')
+        if file_line_pos > 0:
+            file_name = file_and_line[:file_line_pos]
+            file_line = file_and_line[file_line_pos:]
+            dirpath = trace[line][:file_and_line_pos]
+        else:
+            parse_ok = False
+    else:
+        parse_ok = False
+
+    if parse_ok:
         trace[line] = dirpath + Style.BRIGHT + Fore.RED + \
-            file_and_line + Style.RESET_ALL
+            file_name + Fore.WHITE + file_line + Style.RESET_ALL
     else:
         trace[line] = trace[line] + Style.RESET_ALL
 
