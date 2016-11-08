@@ -33,6 +33,7 @@ from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 
 
+CARGO_PATH = '/usr/bin/cargo'
 current_dir = os.path.split(os.getcwd())[1]
 
 
@@ -114,7 +115,7 @@ def main(argv):
 
     os.environ['RUST_BACKTRACE'] = '1'
 
-    args = ['cargo']
+    args = [CARGO_PATH]
     if len(argv) < 2:
         args += argv[1:]
     else:
