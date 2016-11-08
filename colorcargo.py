@@ -89,7 +89,12 @@ def consumer(pipe):
     trace = []
 
     while not pipe.poll():
-        line = pipe.stdout.readline()
+        ch = pipe.stdout.read(1)
+
+        if len(ch) == 0:
+            break
+
+        line = ch + pipe.stdout.readline()
 
         if found_backtrace:
             trace.append(line)
