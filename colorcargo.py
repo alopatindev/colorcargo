@@ -34,60 +34,106 @@ from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 
 CARGO_PATH = '/usr/bin/cargo'
+DIRPATH_SPACES = ' ' * 23  # FIXME
+FILEPATH_PATTERN = ' at '
 current_dir = os.path.split(os.getcwd())[1]
 
 
-def set_func_color(trace, line):
-    func_pos = trace[line].find(' - ')
-    if func_pos > 0:
-        before_func = trace[line][:func_pos]
-        func = trace[line][func_pos:]
-        func_hash_pos = func_pos + func.find('::h')
+def set_func_color(trace, line, our_project):
+    result = ''
+    text = trace[line]
+
+    block_color = Fore.RESET
+    func_color = Fore.CYAN
+    if our_project:
+        block_color = Fore.YELLOW
+        func_color = Fore.MAGENTA
+
+    func_pos = text.find(' - ')
+    if func_pos != 0:
+        before_func = text[:func_pos]
+        func = text[func_pos:]
+        func_hash_pos = func_pos + func.rfind('::h')
         func_hash = ''
-        if func_hash_pos > 0:
-            func = trace[line][func_pos:func_hash_pos]
-            func_hash = trace[line][func_hash_pos:]
-        trace[line] = Fore.YELLOW + before_func + \
-            Style.BRIGHT + Fore.GREEN + func + \
-            Style.NORMAL + func_hash + Fore.YELLOW
+        if func_hash_pos != 0:
+            func = text[func_pos:func_hash_pos]
+            func_hash = text[func_hash_pos:]
+
+        if len(before_func) != 0:
+            result += block_color + before_func
+
+        if len(func) != 0:
+            func_prefix_pos = func.rfind('::')
+            if func_prefix_pos != 0:
+                func_prefix_pos += 2
+                func_prefix = func[:func_prefix_pos]
+                func_name = func[func_prefix_pos:]
+                result += func_color + func_prefix + Style.BRIGHT + func_name
+            else:
+                result += Style.BRIGHT + func
+            result += Style.NORMAL
+
+        if len(func_hash) != 0:
+            result += func_hash
     else:
-        trace[line] = Fore.YELLOW + trace[line]
+        result = block_color + text
+
+    trace[line] = result
 
 
-def set_file_and_line_color(trace, line):
+def set_file_and_line_color(trace, line, our_project):
+    result = ''
+    text = trace[line]
+
+    block_color = Fore.RESET
+    filename_color = Fore.RESET
+    file_line_color = Fore.RESET
+
+    if our_project:
+        block_color = Fore.YELLOW
+        filename_color = Style.BRIGHT + Fore.GREEN
+        file_line_color = Fore.WHITE
+
     parse_ok = True
 
-    file_and_line_pos = trace[line].rfind('/') + 1
-    if file_and_line_pos > 0:
-        file_and_line = trace[line][file_and_line_pos:]
-        file_line_pos = file_and_line.rfind(':')
-        if file_line_pos > 0:
-            file_name = file_and_line[:file_line_pos]
-            file_line = file_and_line[file_line_pos:]
-            dirpath = trace[line][:file_and_line_pos]
+    filename_and_line_pos = text.rfind('/')
+    if filename_and_line_pos > 0:
+        filename_and_line_pos += 1
+        filename_and_line = text[filename_and_line_pos:]
+        file_line_pos = filename_and_line.rfind(':')
+        if file_line_pos != 0:
+            filename = filename_and_line[:file_line_pos]
+            file_line = filename_and_line[file_line_pos:]
+            dirpath = text[:filename_and_line_pos]
+            dirpath_pos = dirpath.find(FILEPATH_PATTERN)
+            dirpath = DIRPATH_SPACES + block_color + dirpath[dirpath_pos:]
         else:
             parse_ok = False
     else:
         parse_ok = False
 
     if parse_ok:
-        trace[line] = dirpath + Style.BRIGHT + Fore.RED + \
-            file_name + Fore.WHITE + file_line + Style.RESET_ALL
+        result = dirpath + filename_color + filename + \
+            file_line_color + file_line
     else:
-        trace[line] = trace[line] + Style.RESET_ALL
+        result += text
+
+    result += Style.NORMAL + Fore.RESET
+    trace[line] = result
 
 
 def set_colors(trace):
     n = len(trace)
     i = n - 1
+
     while i > 0:
-        if trace[i].find(current_dir) != -1:
+        is_path = trace[i].find(FILEPATH_PATTERN)
+        if is_path:
+            our_project = trace[i].find(current_dir) != -1
             prev = i - 1
-            set_func_color(trace, prev)
-            set_file_and_line_color(trace, i)
-            i -= 2
-        else:
-            i -= 1
+            set_func_color(trace, prev, our_project)
+            set_file_and_line_color(trace, i, our_project)
+        i -= 1
 
 
 def parse_backtrace_and_print(trace):
