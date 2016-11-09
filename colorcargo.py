@@ -180,9 +180,12 @@ def main(argv):
         args += [argv[1], '--color=always'] + argv[2:]
 
     pipe = Popen(args=args, stdout=PIPE, stderr=STDOUT)
-    thread = Thread(target=consumer, args=(pipe,))
-    thread.start()
-    thread.join()
+    try:
+        thread = Thread(target=consumer, args=(pipe,))
+        thread.start()
+        thread.join()
+    except KeyboardInterrupt:
+        pipe.terminate()
 
 
 main(sys.argv)
