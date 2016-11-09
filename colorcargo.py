@@ -136,6 +136,7 @@ def main(argv):
     pipe = Popen(args=args, stdout=PIPE, stderr=STDOUT)
     thread = Thread(target=consumer, args=(pipe,))
     thread.start()
+    thread.join()
 
 
 main(sys.argv)
