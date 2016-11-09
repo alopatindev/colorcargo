@@ -6,7 +6,7 @@ colorcargo
 A wrapper for `cargo` that colorizes stack traces
 
 ```
-colorcargo [cargo's arguments] 
+colorcargo [cargo's arguments]
 ```
 
 Licensed under the terms of MIT (read LICENSE.txt for details).
