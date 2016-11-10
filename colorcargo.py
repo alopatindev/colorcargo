@@ -105,7 +105,7 @@ def set_file_and_line_color(trace, line, our_project):
     parse_ok = True
 
     filename_and_line_pos = text.rfind('/')
-    if filename_and_line_pos > 0:
+    if filename_and_line_pos >= 0:
         filename_and_line_pos += 1
         filename_and_line = text[filename_and_line_pos:]
         file_line_pos = filename_and_line.rfind(':')
@@ -143,9 +143,13 @@ def set_colors(trace):
 
 
 def parse_backtrace_and_print(trace):
-    set_colors(trace)
-    for i in trace:
-        sys.stdout.write(i)
+    try:
+        set_colors(trace)
+    except:
+        pass
+    finally:
+        for i in trace:
+            sys.stdout.write(i)
 
 
 def consumer(pipe):
@@ -163,10 +167,10 @@ def consumer(pipe):
 
         if found_backtrace:
             trace.append(line)
-            if line.find('0x0 - <unknown>') != -1:
+            if line.find('0x0 - <unknown>') >= 0:
                 found_backtrace = False
                 parse_backtrace_and_print(trace)
-        elif line.find('stack backtrace:') != -1:
+        elif line.find('stack backtrace:') >= 0:
             found_backtrace = True
             trace.append(line)
         else:
