@@ -33,10 +33,13 @@ import sys
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 
+FILTER_BORING_LINES = False
 CARGO_PATH = '/usr/bin/cargo'
+
 DIRPATH_SPACES = ' ' * 23  # FIXME
 HASH_LENGTH = 16
 FILEPATH_PATTERN = ' at '
+BORING_LINE_PATTERN = '/buildslave/rust-buildbot/slave/'
 current_dir = os.path.split(os.getcwd())[1]
 
 
@@ -148,8 +151,9 @@ def parse_backtrace_and_print(trace):
     except:
         pass
     finally:
-        for i in trace:
-            sys.stdout.write(i)
+        for line in trace:
+            if not (FILTER_BORING_LINES and BORING_LINE_PATTERN in line):
+                sys.stdout.write(line)
 
 
 def consumer(pipe):
