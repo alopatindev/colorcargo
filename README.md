@@ -15,7 +15,7 @@ Configuration
 
 Try to play with
 ```python
-FILTER_BORING_LINES = False
+VERBOSE = True
 CARGO_PATH = '/usr/bin/cargo'
 ```
 

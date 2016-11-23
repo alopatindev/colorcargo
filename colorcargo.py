@@ -33,14 +33,24 @@ import sys
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 
-FILTER_BORING_LINES = False
+VERBOSE = True
 CARGO_PATH = '/usr/bin/cargo'
 
 DIRPATH_SPACES = ' ' * 23  # FIXME
 HASH_LENGTH = 16
 FILEPATH_PATTERN = ' at '
 BORING_LINE_PATTERN = '/buildslave/rust-buildbot/slave/'
-current_dir = os.path.split(os.getcwd())[1]
+
+current_dir = os.getcwd()
+current_dir_name = os.path.split(current_dir)[1]
+current_dir_abs = current_dir + os.path.sep
+
+
+def update_file_path(trace, i, our_project):
+    if our_project and not VERBOSE:
+        line = trace[i]
+        begin, end = line.split(current_dir_abs)
+        trace[i] = begin + end
 
 
 def set_func_color(trace, line, our_project):
@@ -139,8 +149,9 @@ def set_colors(trace):
     for i in range(n - 1, 0, -1):
         is_path = trace[i].find(FILEPATH_PATTERN)
         if is_path:
-            our_project = trace[i].find(current_dir) >= 0
+            our_project = trace[i].find(current_dir_name) >= 0
             prev = i - 1
+            update_file_path(trace, i, our_project)
             set_func_color(trace, prev, our_project)
             set_file_and_line_color(trace, i, our_project)
 
@@ -152,7 +163,7 @@ def parse_backtrace_and_print(trace):
         pass
     finally:
         for line in trace:
-            if not (FILTER_BORING_LINES and BORING_LINE_PATTERN in line):
+            if VERBOSE or BORING_LINE_PATTERN not in line:
                 sys.stdout.write(line)
 
 
