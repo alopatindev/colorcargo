@@ -202,4 +202,7 @@ def main(argv):
         pipe.terminate()
 
 
-main(sys.argv)
+try:
+    main(sys.argv)
+except:
+    pass
