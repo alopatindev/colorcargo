@@ -32,10 +32,12 @@ import re
 import sys
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
+import traceback
 
 VERBOSE = True
 CARGO_PATH = '/usr/bin/cargo'
 
+DEBUG = False
 DIRPATH_SPACES = ' ' * 23  # FIXME
 HASH_LENGTH = 16
 FILEPATH_PATTERN = ' at '
@@ -46,11 +48,20 @@ current_dir_name = os.path.split(current_dir)[1]
 current_dir_abs = current_dir + os.path.sep
 
 
+def debug(prompt, error):
+    if DEBUG:
+        print >> sys.stderr, prompt, str(error)
+        traceback.print_exc()
+
+
 def update_file_path(trace, i, our_project):
-    if our_project and not VERBOSE:
-        line = trace[i]
-        begin, end = line.split(current_dir_abs)
-        trace[i] = begin + end
+    try:
+        if our_project and not VERBOSE:
+            line = trace[i]
+            begin, end = line.split(current_dir_abs)
+            trace[i] = begin + end
+    except ValueError as error:
+        debug('Parsing error: ', error)
 
 
 def set_func_color(trace, line, our_project):
@@ -159,8 +170,8 @@ def set_colors(trace):
 def parse_backtrace_and_print(trace):
     try:
         set_colors(trace)
-    except:
-        pass
+    except Exception as error:
+        debug('Parsing error: ', error)
     finally:
         for line in trace:
             if VERBOSE or BORING_LINE_PATTERN not in line:
