@@ -3,7 +3,7 @@
 colorcargo
 ====
 
-A wrapper for `cargo` that colorizes stack traces
+A wrapper for `cargo` that makes stack traces readable
 
 ```
 pip install -r requirements.txt
@@ -13,9 +13,9 @@ pip install -r requirements.txt
 Configuration
 ---
 
-Try to play with
+Try to play with lines
 ```python
-VERBOSE = True
+VERBOSE = False
 CARGO_PATH = '/usr/bin/cargo'
 ```
 

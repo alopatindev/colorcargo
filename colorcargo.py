@@ -34,7 +34,7 @@ from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 import traceback
 
-VERBOSE = True
+VERBOSE = False
 CARGO_PATH = '/usr/bin/cargo'
 
 DEBUG = False
