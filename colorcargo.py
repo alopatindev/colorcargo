@@ -58,8 +58,8 @@ def debug(prompt, error):
 def update_file_path(trace, i, our_project):
     try:
         if our_project and not VERBOSE:
-            line = trace[i]
-            begin, end = line.split(current_dir_abs)
+            text = trace[i]
+            begin, end = text.split(current_dir_abs)
             trace[i] = begin + end
     except ValueError as error:
         debug('Parsing error: ', error)
@@ -179,9 +179,9 @@ def parse_backtrace_and_print(trace):
     except Exception as error:
         debug('Parsing error: ', error)
     finally:
-        for line in trace:
-            if VERBOSE or BORING_LINE_PATTERN not in line:
-                sys.stdout.write(line)
+        for text in trace:
+            if VERBOSE or BORING_LINE_PATTERN not in text:
+                sys.stdout.write(text)
 
 
 def consumer(pipe):
@@ -195,18 +195,18 @@ def consumer(pipe):
         if len(ch) == 0:
             break
 
-        line = ch + pipe.stdout.readline()
+        text = ch + pipe.stdout.readline()
 
         if found_backtrace:
-            trace.append(line)
-            if line.find('0x0 - <unknown>') >= 0:
+            trace.append(text)
+            if text.find('0x0 - <unknown>') >= 0:
                 found_backtrace = False
                 parse_backtrace_and_print(trace)
-        elif line.find('stack backtrace:') >= 0:
+        elif text.find('stack backtrace:') >= 0:
             found_backtrace = True
-            trace.append(line)
+            trace.append(text)
         else:
-            sys.stdout.write(line)
+            sys.stdout.write(text)
         sys.stdout.flush()
 
 
