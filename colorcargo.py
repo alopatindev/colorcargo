@@ -41,6 +41,7 @@ DEBUG = False
 DIRPATH_SPACES = ' ' * 23  # FIXME
 HASH_LENGTH = 16
 FILEPATH_PATTERN = ' at '
+BEFORE_FUNC_DELIMITER = ' - '
 BORING_LINE_PATTERN = '/buildslave/rust-buildbot/slave/'
 
 current_dir = os.getcwd()
@@ -74,8 +75,9 @@ def set_func_color(trace, line, our_project):
         block_color = Fore.YELLOW
         func_color = Fore.MAGENTA
 
-    func_pos = text.find(' - ')
+    func_pos = text.find(BEFORE_FUNC_DELIMITER)
     if func_pos >= 0:
+        func_pos += len(BEFORE_FUNC_DELIMITER)
         before_func = text[:func_pos]
         func = text[func_pos:]
 
@@ -162,9 +164,13 @@ def set_colors(trace):
         if is_path:
             our_project = trace[i].find(current_dir_name) >= 0
             prev = i - 1
+
             update_file_path(trace, i, our_project)
+
             set_func_color(trace, prev, our_project)
             set_file_and_line_color(trace, i, our_project)
+
+    set_func_color(trace, n - 1, False)
 
 
 def parse_backtrace_and_print(trace):
