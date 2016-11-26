@@ -232,5 +232,5 @@ def main(argv):
 
 try:
     main(sys.argv)
-except:
-    pass
+except Exception as error:
+    debug('Parsing error: ', error)
