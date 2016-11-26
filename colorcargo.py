@@ -103,7 +103,7 @@ def set_func_color(trace, line, our_project):
                 func_name = func[func_prefix_pos:]
                 result += func_color + func_prefix + Style.BRIGHT + func_name
             else:
-                result += Style.BRIGHT + func
+                result += Style.BRIGHT + func_color + func
             result += Style.NORMAL
 
         if len(func_hash) > 0:
@@ -111,7 +111,7 @@ def set_func_color(trace, line, our_project):
     else:
         result = block_color + text
 
-    result += '\n'
+    result += Fore.RESET + '\n'
     trace[line] = result
 
 
