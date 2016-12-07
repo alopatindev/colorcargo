@@ -41,6 +41,7 @@ DEBUG = False
 DIRPATH_SPACES = ' ' * 23  # FIXME
 HASH_LENGTH = 16
 FILEPATH_PATTERN = ' at '
+PANICKED_AT_PATTERN = "' panicked at '"
 BEFORE_FUNC_DELIMITER = ' - '
 BORING_LINE_PATTERN = '/buildslave/rust-buildbot/slave/'
 
@@ -156,12 +157,45 @@ def set_file_and_line_color(trace, line, our_project):
     trace[line] = result
 
 
+def set_panicked_line_color(text):
+    result = ''
+    try:
+        func_color = Fore.MAGENTA
+        block_color = Fore.YELLOW
+        assert_color = Fore.RED
+        filename_color = Style.BRIGHT + Fore.GREEN
+        file_line_color = Fore.WHITE
+
+        begin, thread_name, panicked_at, assert_failed, end = text.split("'")
+        full_file_name = end.split(' ')[1]
+        filename_pos = full_file_name.rfind('/')
+        assert filename_pos >= 0
+        filename_pos += 1
+        dirpath = full_file_name[:filename_pos]
+        filename_and_line_number = full_file_name[filename_pos:]
+        filename, file_line = filename_and_line_number.split(':')
+
+        result += begin
+        result += "'" + func_color + thread_name + Fore.RESET + "'"
+        result += panicked_at
+        result += "'" + assert_color + assert_failed + Fore.RESET + "'"
+        result += ', ' + block_color + dirpath
+        result += filename_color + filename
+        result += file_line_color + ':' + file_line
+        result += Style.NORMAL + Fore.RESET
+    except Exception as error:
+        debug('Parsing error: ', error)
+        result = text
+    finally:
+        return result
+
+
 def set_colors(trace):
     n = len(trace)
 
     for i in range(n - 1, 0, -1):
-        is_path = trace[i].find(FILEPATH_PATTERN)
-        if is_path:
+        line = trace[i]
+        if line.find(FILEPATH_PATTERN) >= 0:
             our_project = trace[i].find(current_dir_name) >= 0
             prev = i - 1
 
@@ -206,6 +240,8 @@ def consumer(pipe):
             found_backtrace = True
             trace.append(text)
         else:
+            if text.find(PANICKED_AT_PATTERN) >= 0:
+                text = set_panicked_line_color(text)
             sys.stdout.write(text)
         sys.stdout.flush()
 
