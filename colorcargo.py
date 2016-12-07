@@ -40,10 +40,12 @@ CARGO_PATH = '/usr/bin/cargo'
 DEBUG = False
 DIRPATH_SPACES = ' ' * 23  # FIXME
 HASH_LENGTH = 16
-FILEPATH_PATTERN = ' at '
-PANICKED_AT_PATTERN = "' panicked at '"
 BEFORE_FUNC_DELIMITER = ' - '
+
+FILEPATH_PATTERN = ' at '
 BORING_LINE_PATTERN = '/buildslave/rust-buildbot/slave/'
+PANICKED_AT_PATTERN = "' panicked at '"
+TEST_RESULT_PATTERN = 'test result: '
 
 current_dir = os.getcwd()
 current_dir_name = os.path.split(current_dir)[1]
@@ -188,6 +190,19 @@ def set_panicked_line_color(text):
         return result
 
 
+def set_test_result_line_color(text):
+    result = ''
+    result += Style.BRIGHT
+
+    color = Fore.RED
+    if text.find(': ok.') >= 0:
+        color = Fore.GREEN
+    result += color + text
+    result += Style.NORMAL + Fore.RESET
+
+    return result
+
+
 def set_colors(trace):
     n = len(trace)
 
@@ -240,6 +255,8 @@ def consumer(pipe):
         else:
             if text.find(PANICKED_AT_PATTERN) >= 0:
                 text = set_panicked_line_color(text)
+            elif text.find(TEST_RESULT_PATTERN) == 1:
+                text = set_test_result_line_color(text)
             sys.stdout.write(text)
         sys.stdout.flush()
 
