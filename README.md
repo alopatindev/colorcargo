@@ -13,7 +13,7 @@ pip install -r requirements.txt
 Configuration
 ---
 
-Try to play with lines
+Try to play with these lines
 ```python
 VERBOSE = False
 CARGO_PATH = '/usr/bin/cargo'
