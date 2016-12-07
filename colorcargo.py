@@ -120,41 +120,39 @@ def set_file_and_line_color(trace, line, our_project):
     result = ''
     text = trace[line]
 
-    block_color = Fore.RESET
-    filename_color = Fore.RESET
-    file_line_color = Fore.RESET
+    try:
+        block_color = Fore.RESET
+        filename_color = Fore.RESET
+        file_line_color = Fore.RESET
 
-    if our_project:
-        block_color = Fore.YELLOW
-        filename_color = Style.BRIGHT + Fore.GREEN
-        file_line_color = Fore.WHITE
+        if our_project:
+            block_color = Fore.YELLOW
+            filename_color = Style.BRIGHT + Fore.GREEN
+            file_line_color = Fore.WHITE
 
-    parse_ok = True
-
-    filename_and_line_pos = text.rfind('/')
-    if filename_and_line_pos >= 0:
+        filename_and_line_pos = text.rfind('/')
+        assert filename_and_line_pos >= 0
         filename_and_line_pos += 1
         filename_and_line = text[filename_and_line_pos:]
-        file_line_pos = filename_and_line.rfind(':')
-        if file_line_pos >= 0:
-            filename = filename_and_line[:file_line_pos]
-            file_line = filename_and_line[file_line_pos:]
-            dirpath = text[:filename_and_line_pos]
-            dirpath_pos = dirpath.find(FILEPATH_PATTERN)
-            dirpath = DIRPATH_SPACES + block_color + dirpath[dirpath_pos:]
-        else:
-            parse_ok = False
-    else:
-        parse_ok = False
 
-    if parse_ok:
+        file_line_pos = filename_and_line.rfind(':')
+        assert file_line_pos >= 0
+        filename = filename_and_line[:file_line_pos]
+        file_line = filename_and_line[file_line_pos:]
+
+        dirpath = text[:filename_and_line_pos]
+        dirpath_pos = dirpath.find(FILEPATH_PATTERN)
+        assert dirpath_pos >= 0
+        dirpath = DIRPATH_SPACES + block_color + dirpath[dirpath_pos:]
+
         result = dirpath + filename_color + filename + \
             file_line_color + file_line
-    else:
-        result += text
-
-    result += Style.NORMAL + Fore.RESET
-    trace[line] = result
+        result += Style.NORMAL + Fore.RESET
+    except Exception as error:
+        debug('Parsing error: ', error)
+        result = text
+    finally:
+        trace[line] = result
 
 
 def set_panicked_line_color(text):
