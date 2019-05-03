@@ -1,10 +1,9 @@
-#!/bin/env python2
-# -*- coding: utf-8 -*-
+#!/bin/env python3
 
 '''
 MIT License
 
-Copyright (c) 2016 Alexander Lopatin
+Copyright (c) 2016-2019 Alexander Lopatin
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-import colorama
-from colorama import Fore, Style
+import configparser
 import os
 import re
 import sys
@@ -34,8 +32,12 @@ from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 import traceback
 
+import colorama
+from colorama import Fore, Style
+
+# TODO: move settings to environment variables
 VERBOSE = False
-CARGO_PATH = '/usr/bin/cargo'
+CARGO_PATH = 'cargo'
 
 DEBUG = False
 DIRPATH_SPACES = ' ' * 23  # FIXME
@@ -43,29 +45,17 @@ HASH_LENGTH = 16
 BEFORE_FUNC_DELIMITER = ' - '
 
 FILEPATH_PATTERN = ' at '
-BORING_LINE_PATTERN = '/buildslave/rust-buildbot/slave/'
+BORING_LINE_PATTERN = re.compile(r'(/rustc|(src/(libstd|libpanic_unwind|libtest))|/var/tmp/portage|/sysdeps/unix/sysv/linux)/')
 PANICKED_AT_PATTERN = "' panicked at '"
 TEST_RESULT_PATTERN = 'test result: '
-
-current_dir = os.getcwd()
-current_dir_name = os.path.split(current_dir)[1]
-current_dir_abs = current_dir + os.path.sep
+FUNC_DELIMITER = '::'
+UNKNOWN_POLL_RESULT = 101
 
 
 def debug(prompt, error):
     if DEBUG:
-        print >> sys.stderr, prompt, str(error)
+        print(prompt, str(error), file=sys.stderr)
         traceback.print_exc()
-
-
-def update_file_path(trace, i, our_project):
-    try:
-        if our_project and not VERBOSE:
-            text = trace[i]
-            begin, end = text.split(current_dir_abs)
-            trace[i] = begin + end
-    except ValueError as error:
-        debug('Parsing error: ', error)
 
 
 def set_func_color(trace, line, our_project):
@@ -84,7 +74,7 @@ def set_func_color(trace, line, our_project):
         before_func = text[:func_pos]
         func = text[func_pos:]
 
-        hash_delimiter = '::h'
+        hash_delimiter = FUNC_DELIMITER + 'h'
         func_hash_pos = func.rfind(hash_delimiter)
 
         hash_length = len(func) - (func_hash_pos + len(hash_delimiter))
@@ -98,10 +88,9 @@ def set_func_color(trace, line, our_project):
             result += block_color + before_func
 
         if len(func) > 0:
-            func_delimiter = '::'
-            func_prefix_pos = func.rfind(func_delimiter)
+            func_prefix_pos = func.rfind(FUNC_DELIMITER)
             if func_prefix_pos >= 0:
-                func_prefix_pos += len(func_delimiter)
+                func_prefix_pos += len(FUNC_DELIMITER)
                 func_prefix = func[:func_prefix_pos]
                 func_name = func[func_prefix_pos:]
                 result += func_color + func_prefix + Style.BRIGHT + func_name
@@ -173,7 +162,7 @@ def set_panicked_line_color(text):
         filename_pos += 1
         dirpath = full_file_name[:filename_pos]
         filename_and_line_number = full_file_name[filename_pos:]
-        filename, file_line = filename_and_line_number.split(':')
+        filename, file_line, column = filename_and_line_number.split(':')
 
         result += begin
         result += "'" + func_color + thread_name + Fore.RESET + "'"
@@ -181,7 +170,7 @@ def set_panicked_line_color(text):
         result += "'" + assert_color + assert_failed + Fore.RESET + "'"
         result += ', ' + block_color + dirpath
         result += filename_color + filename
-        result += file_line_color + ':' + file_line
+        result += file_line_color + ':' + file_line + ':' + column
         result += Style.NORMAL + Fore.RESET
     except Exception as error:
         debug('Parsing error: ', error)
@@ -203,52 +192,74 @@ def set_test_result_line_color(text):
     return result
 
 
-def set_colors(trace):
+def set_colors(trace, our_package_pattern):
     n = len(trace)
-
-    for i in range(n - 1, 0, -1):
+    our_project = False
+    for i in range(n):
         line = trace[i]
-        if line.find(FILEPATH_PATTERN) >= 0:
-            our_project = trace[i].find(current_dir_name) >= 0
-            prev = i - 1
-
-            update_file_path(trace, i, our_project)
-
-            set_func_color(trace, prev, our_project)
+        is_filepath = line.find(FILEPATH_PATTERN) >= 0
+        if is_filepath:
             set_file_and_line_color(trace, i, our_project)
+        else:
+            our_project = bool(our_package_pattern is not None and our_package_pattern.match(trace[i]))
+            set_func_color(trace, i, our_project)
 
-    set_func_color(trace, n - 1, False)
 
-
-def parse_backtrace_and_print(trace):
+def parse_backtrace_and_print(trace, our_package_pattern):
     try:
-        set_colors(trace)
+        set_colors(trace, our_package_pattern)
     except Exception as error:
         debug('Parsing error: ', error)
     finally:
         for text in trace:
-            if VERBOSE or BORING_LINE_PATTERN not in text:
+            if VERBOSE or BORING_LINE_PATTERN.search(text) is None:
                 sys.stdout.write(text)
 
 
-def consumer(pipe):
-    found_backtrace = False
+def find_project_config():
+    config_directory = os.getcwd()
+    filename = 'Cargo.toml'
+    while True:
+        config_path = os.path.join(config_directory, filename)
+        if os.path.isfile(config_path):
+            return config_path
+        elif len(config_directory) <= 1:
+            break
+        else:
+            config_directory = os.path.split(config_directory)[0]
 
+
+def compile_our_package_pattern():
+    config_path = find_project_config()
+    if config_path is not None:
+        config = configparser.ConfigParser()
+        config.read(config_path)
+        package_name = config['package']['name'].strip('"').replace('-', '_')
+        return re.compile(r'.* - [<]{0,1}' + package_name + FUNC_DELIMITER + r'.*')
+
+
+def consume(pipe):
+    our_package_pattern = compile_our_package_pattern()
+    found_backtrace = False
     trace = []
 
-    while not pipe.poll():
-        ch = pipe.stdout.read(1)
+    while True:
+        poll_result = pipe.poll()
+        if poll_result is not None and poll_result != UNKNOWN_POLL_RESULT:
+            break
 
+        ch = pipe.stdout.read(1)
         if len(ch) == 0:
             break
 
         text = ch + pipe.stdout.readline()
+        text = text.decode()
 
         if found_backtrace:
             trace.append(text)
             if text.find('0x0 - <unknown>') >= 0:
                 found_backtrace = False
-                parse_backtrace_and_print(trace)
+                parse_backtrace_and_print(trace, our_package_pattern)
         elif text.find('stack backtrace:') >= 0:
             found_backtrace = True
             trace.append(text)
@@ -264,7 +275,7 @@ def consumer(pipe):
 def main(argv):
     colorama.init()
 
-    os.environ['RUST_BACKTRACE'] = '1'
+    os.environ['RUST_BACKTRACE'] = 'full'
 
     args = [CARGO_PATH]
     if len(argv) < 2:
@@ -274,7 +285,7 @@ def main(argv):
 
     pipe = Popen(args=args, stdout=PIPE, stderr=STDOUT)
     try:
-        thread = Thread(target=consumer, args=(pipe,))
+        thread = Thread(target=consume, args=(pipe,))
         thread.start()
         thread.join()
     except KeyboardInterrupt:
