@@ -59,10 +59,10 @@ def set_func_color(trace, line, our_project):
     text = trace[line].split('\n')[0]
 
     block_color = Fore.RESET
-    func_color = Fore.CYAN
+    func_color = Fore.CYAN + Style.NORMAL
     if our_project:
         block_color = Fore.YELLOW
-        func_color = Fore.MAGENTA
+        func_color = Fore.MAGENTA + Style.NORMAL
 
     func_pos = text.find(BEFORE_FUNC_DELIMITER)
     if func_pos >= 0:
@@ -81,6 +81,7 @@ def set_func_color(trace, line, our_project):
         func = func[:func_hash_pos]
 
         if len(before_func) > 0:
+            before_func = Style.DIM + before_func
             result += block_color + before_func
 
         if len(func) > 0:
