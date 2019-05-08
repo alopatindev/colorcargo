@@ -38,14 +38,17 @@ from colorama import Fore, Style
 DEBUG = False
 DIRPATH_SPACES = ' ' * 23  # FIXME
 HASH_LENGTH = 16
-BEFORE_FUNC_DELIMITER = ' - '
+UNKNOWN_POLL_RESULT = 101
 
+BEFORE_FUNC_DELIMITER_PATTERN = ' - '
 FILEPATH_PATTERN = ' at '
-BORING_LINE_PATTERN = re.compile(r'(/rustc|(src/(libstd|libpanic_unwind|libtest))|/var/tmp/portage|/sysdeps/unix/sysv/linux)/')
+FUNC_DELIMITER_PATTERN = '::'
+OK_PATTERN = 'ok'
 PANICKED_AT_PATTERN = "' panicked at '"
 TEST_RESULT_PATTERN = 'test result: '
-FUNC_DELIMITER = '::'
-UNKNOWN_POLL_RESULT = 101
+
+BORING_LINE_MATCHER = re.compile(r'(/rustc|(src/(libstd|libpanic_unwind|libtest))|/var/tmp/portage|/sysdeps/unix/sysv/linux)/')
+TEST_LINE_MATCHER = re.compile(r'(test .* \.\.\. )(' + OK_PATTERN + r'|FAILED)')
 
 
 def debug(prompt, error):
@@ -64,13 +67,13 @@ def set_func_color(trace, line, our_project):
         block_color = Fore.YELLOW
         func_color = Fore.MAGENTA + Style.NORMAL
 
-    func_pos = text.find(BEFORE_FUNC_DELIMITER)
+    func_pos = text.find(BEFORE_FUNC_DELIMITER_PATTERN)
     if func_pos >= 0:
-        func_pos += len(BEFORE_FUNC_DELIMITER)
+        func_pos += len(BEFORE_FUNC_DELIMITER_PATTERN)
         before_func = text[:func_pos]
         func = text[func_pos:]
 
-        hash_delimiter = FUNC_DELIMITER + 'h'
+        hash_delimiter = FUNC_DELIMITER_PATTERN + 'h'
         func_hash_pos = func.rfind(hash_delimiter)
 
         hash_length = len(func) - (func_hash_pos + len(hash_delimiter))
@@ -85,9 +88,9 @@ def set_func_color(trace, line, our_project):
             result += block_color + before_func
 
         if len(func) > 0:
-            func_prefix_pos = func.rfind(FUNC_DELIMITER)
+            func_prefix_pos = func.rfind(FUNC_DELIMITER_PATTERN)
             if func_prefix_pos >= 0:
-                func_prefix_pos += len(FUNC_DELIMITER)
+                func_prefix_pos += len(FUNC_DELIMITER_PATTERN)
                 func_prefix = func[:func_prefix_pos]
                 func_name = func[func_prefix_pos:]
                 result += func_color + func_prefix + Style.BRIGHT + func_name
@@ -176,12 +179,23 @@ def set_panicked_line_color(text):
         return result
 
 
+def set_test_line_color(text):
+    result = ''
+    color = Fore.RED
+    test, test_result = TEST_LINE_MATCHER.match(text).group(1, 2)
+
+    if test_result == OK_PATTERN:
+        color = Fore.GREEN
+
+    return test + color + test_result + Fore.RESET + '\n'
+
+
 def set_test_result_line_color(text):
     result = ''
     result += Style.BRIGHT
 
     color = Fore.RED
-    if text.find(': ok.') >= 0:
+    if text.find(': {}.'.format(OK_PATTERN)) >= 0:
         color = Fore.GREEN
     result += color + text
     result += Style.NORMAL + Fore.RESET
@@ -209,7 +223,7 @@ def parse_backtrace_and_print(trace, our_package_pattern, verbose):
         debug('Parsing error: ', error)
     finally:
         for text in trace:
-            if verbose or BORING_LINE_PATTERN.search(text) is None:
+            if verbose or BORING_LINE_MATCHER.search(text) is None:
                 sys.stdout.write(text)
 
 
@@ -232,7 +246,7 @@ def compile_our_package_pattern():
         config = configparser.ConfigParser()
         config.read(config_path)
         package_name = config['package']['name'].strip('"').replace('-', '_')
-        return re.compile(r'.* - [<]{0,1}' + package_name + FUNC_DELIMITER + r'.*')
+        return re.compile(r'.* - [<]{0,1}' + package_name + FUNC_DELIMITER_PATTERN + r'.*')
 
 
 def consume(pipe, verbose):
@@ -263,6 +277,8 @@ def consume(pipe, verbose):
         else:
             if text.find(PANICKED_AT_PATTERN) >= 0:
                 text = set_panicked_line_color(text)
+            elif TEST_LINE_MATCHER.match(text):
+                text = set_test_line_color(text)
             elif text.find(TEST_RESULT_PATTERN) == 1:
                 text = set_test_result_line_color(text)
             sys.stdout.write(text)
