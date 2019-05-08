@@ -9,15 +9,7 @@ A wrapper for `cargo` that makes stack traces readable
 ```
 pip3 install --user -r requirements.txt
 ./colorcargo.py [cargo's arguments]
-```
-
-Configuration
----
-
-Try to play with these lines
-```python
-VERBOSE = False
-CARGO_PATH = 'cargo'
+COLORCARGO_VERBOSE=1 ./colorcargo.py [cargo's arguments]
 ```
 
 Licensed under the terms of MIT (read LICENSE.txt for details).

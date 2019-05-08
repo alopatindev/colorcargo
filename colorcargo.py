@@ -35,10 +35,6 @@ import traceback
 import colorama
 from colorama import Fore, Style
 
-# TODO: move settings to environment variables
-VERBOSE = False
-CARGO_PATH = 'cargo'
-
 DEBUG = False
 DIRPATH_SPACES = ' ' * 23  # FIXME
 HASH_LENGTH = 16
@@ -205,14 +201,14 @@ def set_colors(trace, our_package_pattern):
             set_func_color(trace, i, our_project)
 
 
-def parse_backtrace_and_print(trace, our_package_pattern):
+def parse_backtrace_and_print(trace, our_package_pattern, verbose):
     try:
         set_colors(trace, our_package_pattern)
     except Exception as error:
         debug('Parsing error: ', error)
     finally:
         for text in trace:
-            if VERBOSE or BORING_LINE_PATTERN.search(text) is None:
+            if verbose or BORING_LINE_PATTERN.search(text) is None:
                 sys.stdout.write(text)
 
 
@@ -238,7 +234,7 @@ def compile_our_package_pattern():
         return re.compile(r'.* - [<]{0,1}' + package_name + FUNC_DELIMITER + r'.*')
 
 
-def consume(pipe):
+def consume(pipe, verbose):
     our_package_pattern = compile_our_package_pattern()
     found_backtrace = False
     trace = []
@@ -259,7 +255,7 @@ def consume(pipe):
             trace.append(text)
             if text.find('0x0 - <unknown>') >= 0:
                 found_backtrace = False
-                parse_backtrace_and_print(trace, our_package_pattern)
+                parse_backtrace_and_print(trace, our_package_pattern, verbose)
         elif text.find('stack backtrace:') >= 0:
             found_backtrace = True
             trace.append(text)
@@ -276,8 +272,9 @@ def main(argv):
     colorama.init()
 
     os.environ['RUST_BACKTRACE'] = 'full'
+    verbose = os.getenv('COLORCARGO_VERBOSE', '') == '1'
 
-    args = [CARGO_PATH]
+    args = ['cargo']
     if len(argv) < 2:
         args += argv[1:]
     else:
@@ -285,7 +282,7 @@ def main(argv):
 
     pipe = Popen(args=args, stdout=PIPE, stderr=STDOUT)
     try:
-        thread = Thread(target=consume, args=(pipe,))
+        thread = Thread(target=consume, args=(pipe, verbose))
         thread.start()
         thread.join()
     except KeyboardInterrupt:
