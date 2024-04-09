@@ -15,3 +15,12 @@ COLORCARGO_VERBOSE=1 ./colorcargo.py [cargo's arguments]
 Licensed under the terms of MIT (read LICENSE.txt for details).
 
 ![Screenshot](https://raw.githubusercontent.com/alopatindev/assets/master/colorcargo.png)
+
+## Support
+I'm currently investing [all my time](https://codonaft.com/why) in FOSS projects.
+
+If you found this repo useful and you want to support me, please
+- ⭐ it
+- check ⚡ [here](https://codonaft.com/sponsor)
+
+Your support keeps me going ❤️ (◕‿◕)
